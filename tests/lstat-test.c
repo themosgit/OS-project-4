@@ -6,6 +6,8 @@
 #include <errno.h>
 #include <unistd.h>
 
+/* C program to test functionallity of lstat() system call */
+
 int main(int argc, char *argv[]) {
   if (argc != 2) {
     fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
@@ -43,7 +45,7 @@ int main(int argc, char *argv[]) {
   printf("Links: %ld\n", file_stat.st_nlink);
   printf("Permissions: %o\n", file_stat.st_mode & 0777);
   printf("Owner id: %d\n", file_stat.st_uid);
-  printf("Group id: %r\n", file_stat.st_gid);
+  printf("Group id: %d\n", file_stat.st_gid);
 
   char time_str[100];
 
