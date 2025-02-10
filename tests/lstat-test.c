@@ -1,12 +1,11 @@
 #include <sys/stat.h>
 #include <stdio.h>
-#include <sys/stat.h>
 #include <stdlib.h>
 #include <time.h>
 #include <errno.h>
 #include <unistd.h>
 
-/* C program to test functionallity of lstat() system call */
+/* C program to test functionality of lstat() system call */
 
 int main(int argc, char *argv[]) {
   if (argc != 2) {
