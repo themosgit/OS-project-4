@@ -23,13 +23,14 @@ typedef enum {
 } compressed;
 
 
-struct header {
+typedef struct {
   long int size;
   long int myz_list;
   int number_of_nodes;
-};
+}Header;
 
-struct myz_node {
+
+typedef struct {
   compressed gzip;
   long int location;
   long int size;
@@ -39,7 +40,7 @@ struct myz_node {
   int persmissions;
   char time_str[100];
   char name[100];
-};
+}myzNode;
 
 
 int main(int argc, char *argv[]) {
@@ -48,10 +49,10 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  struct myz_node node;
-  struct header head;
-  head.size = sizeof(struct header) + sizeof(struct myz_node);
-  head.myz_list = sizeof(struct header);
+  myzNode node;
+  Header head;
+  head.size = sizeof(myzNode) + sizeof(Header);
+  head.myz_list = sizeof(Header);
   head.number_of_nodes = 1;
   strcpy(node.name, argv[1]);
   
@@ -89,7 +90,7 @@ int main(int argc, char *argv[]) {
   
   head.size = sizeof(node) + sizeof(head) + node.size;
   head.myz_list = sizeof(head) + node.size;
-  printf("size of header: %ld, size of file: %ld, sizeof myz-list: %ld myz would be located at: %ld\n", sizeof(struct header), node.size, sizeof(struct myz_node), head.myz_list);
+  printf("Size of header: %ld\nSize of file: %ld\nSizeof myz-list: %ld\nMyz would be located at: %ld\n", sizeof(Header), node.size, sizeof(myzNode), head.myz_list);
 
   int outfd = open("test.myz", O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
@@ -104,20 +105,20 @@ int main(int argc, char *argv[]) {
   close(outfd);
 
   int myzfd = open("test.myz", O_RDONLY);
-  struct header test_head; 
-  struct myz_node test_node;
+  Header test_head; 
+  myzNode test_node;
 
 
   read(myzfd, &test_head, sizeof(test_head));
 
-  printf("Data from header Size of myz file:%ld, where myz-list is located:%ld\n", test_head.size, test_head.myz_list);
+  printf("Data from header Size of myz file:%ld\nWhere myz-list is located:%ld\n", test_head.size, test_head.myz_list);
   lseek(myzfd, test_head.myz_list, SEEK_SET);
 
 
   read(myzfd, &test_node, sizeof(test_node));
 
 
-  printf("Now showing data stored in myz node that was retrieved from .myz file\n");
+  printf("Now showing data stored in myz node\n");
   printf("Name of file: %s\n", test_node.name);
   if (test_node.type == TFILE) {
     printf("Regular file\n");
