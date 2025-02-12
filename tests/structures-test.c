@@ -27,8 +27,18 @@ typedef struct {
   long int size;
   long int myz_list;
   int number_of_nodes;
-}Header;
+  int sizeofChunk;
+} Header;
 
+typedef struct {
+  int listIndex;
+  char name[50];
+} arrayNode;
+
+typedef struct {
+  int size;
+  arrayNode *data;
+} nestedArray;
 
 typedef struct {
   compressed gzip;
@@ -38,8 +48,9 @@ typedef struct {
   int uid;
   int gid;
   int persmissions;
-  char time_str[100];
+  char time_str[20];
   char name[100];
+  nestedArray array;
 }myzNode;
 
 
