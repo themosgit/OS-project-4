@@ -13,99 +13,6 @@
 #define MAXPATH 256
 
 
-int myzInit(const char* myzFilename) {
-  MyzNode root;
-
-  root.uid = 1;
-  root.gid = 1;
-  root.permissions = 1;
-
-  time_t timenow;
-  time(&timenow);
-  strftime(root.timestamp, sizeof(root.timestamp), "%Y-%m-%d %H:%M:%S", localtime(&timenow));
-
-  strcpy(root.name, myzFilename);
-
-  root.fileLocation = 0;
-  root.fileSize = 0;
-  root.type = MROOT;
-  root.compressed = false;
-
-  root.array.arraySize = 2;
-  root.array.data = (ArrayNode*)malloc(sizeof(ArrayNode) * root.array.arraySize);
-  
-  root.array.data[0].listIndex = 0;
-  strcpy(root.array.data[0].name, ".");
-  root.array.data[1].listIndex = 0;
-  strcpy(root.array.data[1].name, "..");
-
-  Header head;
-  head.myzNodeList = sizeof(head);
-  head.myzNodeCount = 1; 
-
-
-  int fd = open(myzFilename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-
-  if (fd == -1) {
-    perror("Error in myzInit open");
-    return 1;
-  }
-
-  if (write(fd, &head, sizeof(Header)) == -1) {
-    perror("Error in writing myz header to file\n");
-    close(fd);
-    return 1;
-  }
-
-  if (writeMyzList(fd, head.myzNodeCount, &root) == 1) {
-    perror("Error in writeMyzList");
-    close(fd);
-    return 1;
-  }
-  close(fd);
-  return 0;
-}
-
-
-int myzInsert(char* inputFiles[], int count, bool compress) {
-  int myzfd = open(inputFiles[0], O_RDWR);
-  if (myzfd == -1) {
-    perror("Error opening archive file (myzInsert)");
-    return 1;
-  }
-
-  Header head;
-  ssize_t bytes_read = read(myzfd, &head, sizeof(Header));
-  if (bytes_read != sizeof(Header)) {
-    perror("Incorrectly read header structure");
-    return 1;
-  }
-  printf("Myz node list %ld\n", head.myzNodeList);
-  printf("Myz node count %d\n", head.myzNodeCount);
-  
-  lseek(myzfd, head.myzNodeList, SEEK_SET);
-  MyzNode* myzList = readMyzList(myzfd, head.myzNodeCount);
-  //TO DO: check if file is already in the archive
-  struct stat filestat;
-  for (int i = 1; i < count; ++i) {
-    printf("%s\n", inputFiles[i]);
-    myzList = insertEntry(myzfd, inputFiles[i], inputFiles[i], 0, myzList, &head);
-  }
-  lseek(myzfd, 0, SEEK_SET);
-  write(myzfd, &head, sizeof(Header));
-  lseek(myzfd, head.myzNodeList, SEEK_SET);
-
-  if (writeMyzList(myzfd, head.myzNodeCount, myzList) == 1) {
-    perror("Error in writeMyzList");
-  };
-
-  free(myzList);
-  close(myzfd);
-  return 0;
-}
-
-
-//TO DO: improve error handling
 MyzNode* readMyzList(int fd, int count) {
   MyzNode* myzList = (MyzNode*)malloc(sizeof(MyzNode) * count);
   if (myzList == NULL) {
@@ -135,6 +42,8 @@ MyzNode* readMyzList(int fd, int count) {
 }
 
 
+
+
 int writeMyzList(int fd, int count, MyzNode *myzList) {
   for (int i = 0; i < count; ++i) {
     if (write(fd, &myzList[i], sizeof(MyzNode)) == -1) {
@@ -160,20 +69,25 @@ int writeMyzList(int fd, int count, MyzNode *myzList) {
   return 0;
 }
 
+
+
+
 MyzNode* insertEntry(int myzfd, char *filepath, char *filename, int rootDir, MyzNode* myzList, Header* head) {
+  struct stat filestat;
+  lstat(filepath, &filestat);
+  if(findEntry(myzList, head->myzNodeCount, filestat.st_ino) != 0) return myzList;
+  
   MyzNode* temp = (MyzNode*)realloc(myzList, sizeof(MyzNode) * ++head->myzNodeCount);
   if (temp == NULL) {
     perror("Error increasing myzList size");
   }
   myzList = temp;
-
-  struct stat filestat;
-  lstat(filepath, &filestat);
-
+  
   int nodeNum = head->myzNodeCount - 1;  
   myzList[nodeNum].uid = filestat.st_uid;
   myzList[nodeNum].gid = filestat.st_gid;
   myzList[nodeNum].permissions = filestat.st_mode & 0777;
+  myzList[nodeNum].inode = filestat.st_ino;
   myzList[nodeNum].fileSize = filestat.st_size;
   myzList[nodeNum].compressed = false;
 
@@ -206,6 +120,10 @@ MyzNode* insertEntry(int myzfd, char *filepath, char *filename, int rootDir, Myz
     printf("Success\n");
 
   } else if (S_ISDIR(filestat.st_mode)) {
+    if (rootDir == 0) {
+      strcpy(myzList[nodeNum].name, basename(filename));
+      strcpy(myzList[rootDir].array.data[myzList[rootDir].array.arraySize - 1].name, basename(filename));
+    }
     myzList[nodeNum].type = MDIR;
     myzList[nodeNum].fileLocation = 0;
 
@@ -219,7 +137,7 @@ MyzNode* insertEntry(int myzfd, char *filepath, char *filename, int rootDir, Myz
 
     DIR *dir;
     struct dirent *entry;
-    char fullpath[MAXPATH];
+    char fullpath[MAXPATH + 1];
 
     dir = opendir(filepath);
     if (dir == NULL) {
@@ -228,11 +146,99 @@ MyzNode* insertEntry(int myzfd, char *filepath, char *filename, int rootDir, Myz
     }
 
     while ((entry = readdir(dir)) != NULL) {
-      snprintf(fullpath, MAXPATH, "%s/%s", filepath, entry->d_name);
+      snprintf(fullpath, MAXPATH + 1, "%s/%s", filepath, entry->d_name);
       if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
       myzList = insertEntry(myzfd, fullpath, entry->d_name, nodeNum, myzList, head);
     }
     closedir(dir);
   }
+
   return myzList;
+}
+
+
+int extractEntry(int myzfd, MyzNode* myzList, int index, char* path) {
+  if (myzList[index].type == MFILE) {
+    int outfd = open(path, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    if (outfd == -1) {
+      perror("Error creating file");
+      return 1;
+    }
+
+    ssize_t bytes_read;
+    size_t bytes_to_read = myzList[index].fileSize;
+    char buffer[BUFFER_SIZE];
+
+    lseek(myzfd, myzList[index].fileLocation, SEEK_SET);
+    while (bytes_to_read > BUFFER_SIZE) {
+      bytes_read = read(myzfd, buffer, BUFFER_SIZE);
+      if (bytes_read != BUFFER_SIZE) {
+        perror("Error reading from archive file");
+        return 0;
+      }
+      write(outfd, buffer, BUFFER_SIZE);
+      bytes_to_read -= BUFFER_SIZE;
+    }
+
+    bytes_read = read(myzfd, buffer, bytes_to_read);
+    if (bytes_read != bytes_to_read) {
+      perror("Error reading archive file");
+    }
+    write(outfd, buffer, bytes_to_read);
+    close(outfd);
+
+  } else if (myzList[index].type == MDIR || myzList[index].type == MROOT) {
+    if (mkdir(path, 0777) != 0) {
+      printf("path : %s\n", path);
+      perror("Error creating directory");
+      return 1;
+    }
+
+    char fullpath[MAXPATH + 1];
+    for (int i = 0; i < myzList[index].array.arraySize; ++i) {
+      if ((strcmp(myzList[index].array.data[i].name, ".") == 0) ||
+           strcmp(myzList[index].array.data[i].name, "..") == 0) continue;
+
+      snprintf(fullpath, MAXPATH + 1, "%s/%s", path, myzList[index].array.data[i].name);
+      extractEntry(myzfd, myzList, myzList[index].array.data[i].listIndex, fullpath);
+    }
+  }
+  return 0;
+}
+
+
+
+
+
+int findEntry(MyzNode* myzList, int myzNodeCount, int EntryInode) {
+  int i = 1;
+  while (myzList[i].inode != EntryInode && i < myzNodeCount) ++i;
+  if (i == myzNodeCount) {
+    return 0;
+  } else {
+    return i;
+  }
+}
+
+
+
+
+int printTree(MyzNode* myzList, int rootDir, int level) {
+  int index;
+  for (int i = 0; i < myzList[rootDir].array.arraySize; ++i) {
+    if ((strcmp(myzList[rootDir].array.data[i].name, ".") == 0) ||
+         strcmp(myzList[rootDir].array.data[i].name, "..") == 0) continue;
+     
+    index = myzList[rootDir].array.data[i].listIndex;
+    if(myzList[index].type == MFILE){
+      for (int j = 0; j < level; ++j) printf("   ");
+      printf("|->%s\n",myzList[index].name);
+
+    } else if (myzList[index].type == MDIR){
+      for (int j = 0; j < level; ++j) printf("   ");
+      printf("|->%s/\n", myzList[index].name);
+      printTree(myzList, index, level + 1);
+    }
+  }
+  return 0;
 }

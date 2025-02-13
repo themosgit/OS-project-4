@@ -27,19 +27,23 @@ int main(int argc, char *argv[]) {
       }
       break;
     case 'x':
-      //extract function 
+      assert(argc >= 3);
+      myzExtract(&argv[2], argc - 2);
       break;
     case 'd':
       //delete function
       break;
     case 'm':
-      //metadata print for all files
+      assert(argc == 3);
+      myzMetadata(argv[2]);
       break;
     case 'q':
-      //query for a file return yes or no  
+      assert(argc >=4);
+      myzQuery(&argv[2], argc - 2);
       break;
     case 'p':
-      //print the myz file structure in a readdable manner
+      assert(argc == 3);
+      myzPrint(argv[2]);
       break;
     default:
       printf("Usage: %s {-c|-a|-x|-m|-d|-p|-j} <archive-file> <list-of-files/dirs>\n", argv[0]); 
