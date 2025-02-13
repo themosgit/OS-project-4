@@ -8,46 +8,45 @@ int main(int argc, char *argv[])  {
 
   int fd = open(argv[1], O_RDONLY);
 
-  Header testHeader;
-  MyzNode testMyzNode;
+  Header head;
 
-  read(fd, &testHeader, sizeof(Header));
+  read(fd, &head, sizeof(Header));
 
   printf("Obtained header\n");
-  printf("Size of myz file: %ld\n", testHeader.myzSize);
-  printf("Number of myz nodes in file: %d\n", testHeader.myzNodeCount);
-  printf("Location of myz node list: %ld\n", testHeader.myzNodeList);
-  printf("Size of myz node chunks: %ld\n", testHeader.myzChunkSize);
+  printf("Number of myz nodes in file: %d\n", head.myzNodeCount);
+  printf("Location of myz node list: %ld\n", head.myzNodeList);
 
-  read(fd, &testMyzNode, sizeof(MyzNode));
+  lseek(fd, head.myzNodeList, SEEK_SET);
 
-  printf("Obtained myz node\n");
-  printf("Type:");
-  if (testMyzNode.type == MFILE) {
-    printf("Regular file\n"); 
-  } else if (testMyzNode.type == MDIR) {
-    printf("Directory\n");
-  } else if (testMyzNode.type == MROOT) {
-    printf("Root node\n");
-  } else {
-    printf("Unknow\n");
-  }
-  printf("Name of file: %s\n", testMyzNode.name);
-  printf("Timestamp: %s\n", testMyzNode.timestamp);
+  MyzNode* myzList = readMyzList(fd, head.myzNodeCount);
+
+  for (int j = 0; j < head.myzNodeCount; ++j) {
+    printf("\n\nObtained myz node\n");
+    printf("Type:");
+    if (myzList[j].type == MFILE) {
+      printf("Regular file\n"); 
+    } else if (myzList[j].type == MDIR) {
+      printf("Directory\n");
+    } else if (myzList[j].type == MROOT) {
+      printf("Root node\n");
+    } else {
+      printf("Unknow\n");
+    }
+    printf("Name of file: %s\n", myzList[j].name);
+    printf("Timestamp: %s\n", myzList[j].timestamp);
   
-  read(fd, &testMyzNode.array.arraySize, sizeof(int));
-  
-  printf("Obtained array size\n");
-  printf("Array size of node is: %d\n", testMyzNode.array.arraySize);
+    if (myzList[j].type == MFILE) continue;
 
-  testMyzNode.array.data = (ArrayNode*)malloc(sizeof(ArrayNode) * testMyzNode.array.arraySize);
-  for (int i = 0; i < testMyzNode.array.arraySize; ++i) {
-    read(fd, &testMyzNode.array.data[i], sizeof(ArrayNode));
-    printf("Array Node: %d. Entry: %s in myz node: %d\n", i, testMyzNode.array.data[i].name, testMyzNode.array.data[i].listIndex);
+    printf("Obtained array size\n");
+    printf("Array size of node is: %d\n", myzList[j].array.arraySize);
+
+    for (int i = 0; i < myzList[j].array.arraySize; ++i) {
+      printf("Array Node: %d. Entry: %s in myz node: %d\n", i, myzList[j].array.data[i].name, myzList[j].array.data[i].listIndex);
+    }
+
+    free(myzList[j].array.data);
   }
-
-  free(testMyzNode.array.data);
-
+  free(myzList);
   close(fd);
   
   

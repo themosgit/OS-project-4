@@ -10,17 +10,20 @@ int main(int argc, char *argv[]) {
       if (argv[2][1] == 'j') {
         assert(argc >= 5);
         myzInit(argv[3]);
+        myzInsert(&argv[3], argc - 3, true);
       } else {
         assert(argc >= 4);
         myzInit(argv[2]);
+        myzInsert(&argv[2], argc - 2, false);
       } 
       break;
     case 'a':
       if (argv[2][1] == 'j') {
         assert(argc >= 5);
+        myzInsert(&argv[3], argc - 3, true);
       } else {
         assert(argc >= 4);
-        printf("Append\n");
+        myzInsert(&argv[2], argc - 2, false);
       }
       break;
     case 'x':

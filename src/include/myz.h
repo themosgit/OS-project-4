@@ -10,6 +10,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <assert.h>
+#include <dirent.h>
 
 typedef enum {
   MFILE,
@@ -19,9 +20,7 @@ typedef enum {
 } FileType;
   
 typedef struct {
-  size_t myzSize;
   size_t myzNodeList;
-  size_t myzChunkSize;
   int myzNodeCount;
 } Header;
 
@@ -53,4 +52,10 @@ typedef struct {
 
 int myzInit(const char* myzFilename);
 
-int writeMyzList(int fd, int count, MyzNode *myzNodeList);
+int myzInsert(char* inputFiles[], int count, bool compress);
+
+MyzNode* readMyzList(int fd, int count);
+
+int writeMyzList(int fd, int count, MyzNode *myzList);
+
+MyzNode* insertEntry(int myzfd, char *filepath, char *filename, int rootDir, MyzNode* myzList, Header* head);
