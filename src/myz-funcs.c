@@ -1,8 +1,6 @@
 #include "include/myz.h"
 
 
-
-
 int myzInit(const char* myzFilename) {
   MyzNode root;
 
@@ -48,7 +46,7 @@ int myzInit(const char* myzFilename) {
     return 1;
   }
 
-  if (writeMyzList(fd, head.myzNodeCount, &root) == 1) {
+  if (writeMyzList(fd, head, &root) == 1) {
     perror("Error in writeMyzList");
     close(fd);
     return 1;
@@ -59,112 +57,63 @@ close(fd);
 
 
 
-
-
 int myzInsert(char* inputFiles[], int count, bool compress) {
-  int myzfd = open(inputFiles[0], O_RDWR);
-  if (myzfd == -1) {
-    perror("Error opening archive file");
-    return 1;
-  }
-
   Header head;
-  ssize_t bytes_read = read(myzfd, &head, sizeof(Header));
-  if (bytes_read != sizeof(Header)) {
-    perror("Error read header structure");
-    return 1;
-  }
-  
-  lseek(myzfd, head.myzNodeList, SEEK_SET);
-  MyzNode* myzList = readMyzList(myzfd, head.myzNodeCount);
+  bool readWrite = true;
+  int myzfd = openMyz(inputFiles[0], &head, readWrite);
+  MyzNode* myzList = readMyzList(myzfd, head);
 
   for (int i = 1; i < count; ++i) {
-    printf("%s\n", inputFiles[i]);
     myzList = insertEntry(myzfd, inputFiles[i], inputFiles[i], 0, myzList, &head);
   }
-  lseek(myzfd, 0, SEEK_SET);
-  write(myzfd, &head, sizeof(Header));
-  lseek(myzfd, head.myzNodeList, SEEK_SET);
 
-  if (writeMyzList(myzfd, head.myzNodeCount, myzList) == 1) {
+  if (writeMyzList(myzfd, head, myzList) == 1) {
     perror("Error in writeMyzList");
   };
-
-  free(myzList);
+  freeMyzList(myzList, head.myzNodeCount);
   close(myzfd);
   return 0;
 }
 
 
 
-
 int myzExtract(char* inputFiles[], int count) {
-  int myzfd = open(inputFiles[0], O_RDONLY);
-  if (myzfd == -1) {
-    perror("Error opening archive file");
-    return 1;
-  }
-  printf("extractEntry\n");
   Header head;
-  ssize_t bytes_read = read(myzfd, &head, sizeof(Header));
-  printf("extractEntry\n");
-  if (bytes_read != sizeof(Header)) {
-    perror("Error reading structure");
-    return 1;
-  }
-  
-  
-  lseek(myzfd, head.myzNodeList, SEEK_SET);
-  MyzNode* myzList = readMyzList(myzfd, head.myzNodeCount);
-  
+  bool readWrite = false;
+  int myzfd = openMyz(inputFiles[0], &head, readWrite);
+  MyzNode* myzList = readMyzList(myzfd, head);
+
   int index;
   struct stat filestat;
   for (int i = 1; i < count; ++i) {
-    
     lstat(inputFiles[i], &filestat);
     index = findEntry(myzList, head.myzNodeCount, filestat.st_ino);
     extractEntry(myzfd, myzList, index, myzList[index].name);
   }
 
   if (count == 1) {
-    printf("extracting all\n");
     extractEntry(myzfd, myzList, 0, myzList[0].name);
   }
-
+  freeMyzList(myzList, head.myzNodeCount);
   close(myzfd);
-  for (int i = 0; i < head.myzNodeCount; ++i) {
-    if (myzList[i].array.arraySize == 0) continue;
-    free(myzList[i].array.data);
-  }
-  free(myzList);
   return 0;
 }
 
 
 
-
 int myzMetadata(char* myzFilename) {
-  int myzfd = open(myzFilename, O_RDONLY);
-  if (myzfd == -1) {
-    perror("Error opening archive file");
-    return 1;
-  }
-
   Header head;
-  ssize_t bytes_read = read(myzfd, &head, sizeof(Header));
-  if(bytes_read != sizeof(Header)) {
-    perror("Error reading header structure");
-    return 1;
-  }
-
-  lseek(myzfd, head.myzNodeList, SEEK_SET);
-  MyzNode* myzList = readMyzList(myzfd, head.myzNodeCount);
+  bool readWrite = false;
+  int myzfd = openMyz(myzFilename, &head, readWrite);
+  MyzNode* myzList = readMyzList(myzfd, head);
   close(myzfd);
 
   for (int i = 1; i < head.myzNodeCount; ++i) {
     printf("Entry name: %s", myzList[i].name);
     if (myzList[i].type == MFILE) {
       printf("  Regular file\n");
+    } else if (myzList[i].type == MLINK) {
+      printf("  Symbolic link\n");
     } else if (myzList[i].type == MDIR) {
       printf("  Directory\n");
     }
@@ -172,36 +121,19 @@ int myzMetadata(char* myzFilename) {
     printf("   Access rights: %o. File size: %ld bytes.\n", myzList[i].permissions, myzList[i].fileSize);
     printf("   Timestamp: %s.\n\n", myzList[i].timestamp);
   }
-  
-  for (int i = 0; i < head.myzNodeCount; ++i) {
-    if (myzList[i].array.arraySize == 0) continue;
-    free(myzList[i].array.data);
-  }
-  free(myzList);
+  freeMyzList(myzList, head.myzNodeCount);
   return 0;
 }
 
 
 
-
 int myzQuery(char* inputFiles[], int count) {
-  int myzfd = open(inputFiles[0], O_RDONLY);
-  if (myzfd == -1) {
-    perror("Error opening archive file");
-    return 1;
-  }
-
   Header head;
-  ssize_t bytes_read = read(myzfd, &head, sizeof(Header));
-  if(bytes_read != sizeof(Header)) {
-    perror("Error reading header structure");
-    return 1;
-  }
-
-  lseek(myzfd, head.myzNodeList, SEEK_SET);
-  MyzNode* myzList = readMyzList(myzfd, head.myzNodeCount);
+  bool readWrite = false;
+  int myzfd = openMyz(inputFiles[0], &head, readWrite);
+  MyzNode* myzList = readMyzList(myzfd, head);
   close(myzfd);
-  
+
   struct stat filestat;
   for (int i = 1; i < count; ++i) {
     lstat(inputFiles[i], &filestat);
@@ -211,42 +143,20 @@ int myzQuery(char* inputFiles[], int count) {
       printf("%s not found in %s\n", inputFiles[i], inputFiles[0]);
     }
   }
-
-  for (int i = 0; i < head.myzNodeCount; ++i) {
-    if (myzList[i].array.arraySize == 0) continue;
-    free(myzList[i].array.data);
-  }
-  free(myzList);
+  freeMyzList(myzList, head.myzNodeCount);
   return 0;
 }
 
 
 
-
 int myzPrint(char* myzFilename) {
-  int myzfd = open(myzFilename, O_RDONLY);
-  if (myzfd == -1) {
-    perror("Error opening archive file");
-    return 1;
-  }
-
   Header head;
-  ssize_t bytes_read = read(myzfd, &head, sizeof(Header));
-  if(bytes_read != sizeof(Header)) {
-    perror("Error reading header structure");
-    return 1;
-  }
-
-  lseek(myzfd, head.myzNodeList, SEEK_SET);
-  MyzNode* myzList = readMyzList(myzfd, head.myzNodeCount);
+  bool write = false;
+  int myzfd = openMyz(myzFilename, &head, write);
+  MyzNode* myzList = readMyzList(myzfd, head);
   close(myzfd);
 
   printTree(myzList, 0, 0);
-
-  for (int i = 0; i < head.myzNodeCount; ++i) {
-    if (myzList[i].array.arraySize == 0) continue;
-    free(myzList[i].array.data);
-  }
-  free(myzList);
+  freeMyzList(myzList, head.myzNodeCount);
   return 0;
 }

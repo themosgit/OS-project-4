@@ -16,6 +16,7 @@
 typedef enum {
   MFILE,
   MDIR,
+  MLINK,
   MROOT,
   MUNKNOWN
 } FileType;
@@ -52,6 +53,7 @@ typedef struct {
 } MyzNode;
 
 
+
 int myzInit(const char* myzFilename);
 
 int myzInsert(char* inputFiles[], int count, bool compress);
@@ -67,14 +69,22 @@ int myzPrint(char* myzFilename);
 
 
 
-MyzNode* readMyzList(int fd, int count);
+int openMyz(char* myzFilename, Header* head, bool write);
 
-int writeMyzList(int fd, int count, MyzNode *myzList);
+MyzNode* readMyzList(int myzfd, Header head);
+
+int writeMyzList(int myzfd, Header head, MyzNode *myzList);
 
 MyzNode* insertEntry(int myzfd, char *filepath, char *filename, int rootDir, MyzNode* myzList, Header* head);
+
+MyzNode* insertFile(int myzfd, char* filepath, size_t filesize, int nodeNum, MyzNode* myzList, Header* head);
+
+MyzNode* insertLink(int myzfd, char* filepath, int nodeNum, MyzNode* myzList, Header* head);
 
 int extractEntry(int myzfd, MyzNode* myzList, int index, char* path);
 
 int findEntry(MyzNode* myzList, int myzNodeCount, int EntryInode);
 
 int printTree(MyzNode* myzList, int rootDir, int level);
+
+void freeMyzList(MyzNode* myzList, int myzNodeCount);
