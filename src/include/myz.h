@@ -12,13 +12,14 @@
 #include <assert.h>
 #include <dirent.h>
 #include <libgen.h>
+#include <sys/wait.h>
 
 typedef enum {
   MFILE,
   MDIR,
   MLINK,
   MROOT,
-  MUNKNOWN
+  MDELETED
 } FileType;
   
 typedef struct {
@@ -75,16 +76,25 @@ MyzNode* readMyzList(int myzfd, Header head);
 
 int writeMyzList(int myzfd, Header head, MyzNode *myzList);
 
-MyzNode* insertEntry(int myzfd, char *filepath, char *filename, int rootDir, MyzNode* myzList, Header* head);
+MyzNode* insertEntry(int myzfd, char *filepath, char *filename, int rootDir, MyzNode* myzList, Header* head, bool compress);
 
-MyzNode* insertFile(int myzfd, char* filepath, size_t filesize, int nodeNum, MyzNode* myzList, Header* head);
+MyzNode* insertFile(int myzfd, char* filepath, int nodeNum, MyzNode* myzList, Header* head);
 
 MyzNode* insertLink(int myzfd, char* filepath, int nodeNum, MyzNode* myzList, Header* head);
 
-int extractEntry(int myzfd, MyzNode* myzList, int index, char* path);
+int extractFile(int myzfd, MyzNode* myzList, int index, char* path);
+
+int extractLink(int myzfd, MyzNode* myzList, int index, char* path);
+
+int extractDir(int myzfd, MyzNode* myzList, int index, char* path);
 
 int findEntry(MyzNode* myzList, int myzNodeCount, int EntryInode);
 
 int printTree(MyzNode* myzList, int rootDir, int level);
 
 void freeMyzList(MyzNode* myzList, int myzNodeCount);
+
+int compressFile(char* filepath);
+
+int decompressFile(int myzfd, size_t bytes, int outfd);
+

@@ -64,7 +64,7 @@ int myzInsert(char* inputFiles[], int count, bool compress) {
   MyzNode* myzList = readMyzList(myzfd, head);
 
   for (int i = 1; i < count; ++i) {
-    myzList = insertEntry(myzfd, inputFiles[i], inputFiles[i], 0, myzList, &head);
+    myzList = insertEntry(myzfd, inputFiles[i], inputFiles[i], 0, myzList, &head, compress);
   }
 
   if (writeMyzList(myzfd, head, myzList) == 1) {
@@ -88,15 +88,39 @@ int myzExtract(char* inputFiles[], int count) {
   for (int i = 1; i < count; ++i) {
     lstat(inputFiles[i], &filestat);
     index = findEntry(myzList, head.myzNodeCount, filestat.st_ino);
-    extractEntry(myzfd, myzList, index, myzList[index].name);
+    if (myzList[index].type == MFILE) {
+       myzextractFile(myzfd, myzList, index, myzList[index].name);
+    } else if (myzList[index].type == MDIR) {
+       extractDir(myzfd, myzList, index, myzList[index].name);
+    } 
   }
 
   if (count == 1) {
-    extractEntry(myzfd, myzList, 0, myzList[0].name);
+    extractDir(myzfd, myzList, 0, myzList[0].name);
   }
   freeMyzList(myzList, head.myzNodeCount);
   close(myzfd);
   return 0;
+}
+
+
+
+int myzDelete(char* inputFiles[], int count) {
+  Header head;
+  bool readWrite = true;
+  int myzfd = openMyz(inputFiles[0], &head, readWrite);
+  MyzNode* myzList = readMyzList(myzfd, head);
+
+  int index;
+  struct stat filestat;
+  for (int i = 1; i < count; ++i) {
+    lstat(inputFiles[0], &filestat);
+    index = findEntry(myzList, head.myzNodeCount, filstat.st_ino);
+    if (index == 0) continue;
+    
+  
+  }
+  printf("ets\n");
 }
 
 
@@ -134,13 +158,14 @@ int myzQuery(char* inputFiles[], int count) {
   MyzNode* myzList = readMyzList(myzfd, head);
   close(myzfd);
 
+  int index;
   struct stat filestat;
   for (int i = 1; i < count; ++i) {
     lstat(inputFiles[i], &filestat);
-    if (findEntry(myzList, head.myzNodeCount, filestat.st_ino) != 0) {
-      printf("Found entry: %s in %s\n", inputFiles[i], inputFiles[0]);
+    if ((index = findEntry(myzList, head.myzNodeCount, filestat.st_ino)) != 0) {
+      printf("Found entry: %s in %s\n", myzList[index].name, inputFiles[0]);
     } else  {
-      printf("%s not found in %s\n", inputFiles[i], inputFiles[0]);
+      printf("%s not found in %s\n", myzList[i].name, inputFiles[0]);
     }
   }
   freeMyzList(myzList, head.myzNodeCount);

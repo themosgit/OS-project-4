@@ -31,7 +31,8 @@ int main(int argc, char *argv[]) {
       myzExtract(&argv[2], argc - 2);
       break;
     case 'd':
-      //delete function
+      assert(argc >= 4);
+      myzDelete(&argv[2], argc - 2);
       break;
     case 'm':
       assert(argc == 3);
