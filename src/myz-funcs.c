@@ -1,6 +1,8 @@
 #include "include/myz.h"
 
-
+/* myzInit is a function that initiliazes the 
+* rootNode and header it allows for myzInsert
+* to used for both -c -a flags.*/
 int myzInit(const char* myzFilename) {
   MyzNode root;
 
@@ -51,7 +53,8 @@ int myzInit(const char* myzFilename) {
     close(fd);
     return 1;
   }
-close(fd);
+  free(root.array.data);
+  close(fd);
   return 0;
 }
 
@@ -82,19 +85,18 @@ int myzExtract(char* inputFiles[], int count) {
   bool readWrite = false;
   int myzfd = openMyz(inputFiles[0], &head, readWrite);
   MyzNode* myzList = readMyzList(myzfd, head);
-
   int index;
   struct stat filestat;
   for (int i = 1; i < count; ++i) {
     lstat(inputFiles[i], &filestat);
     index = findEntry(myzList, head.myzNodeCount, filestat.st_ino);
     if (myzList[index].type == MFILE) {
-       myzextractFile(myzfd, myzList, index, myzList[index].name);
+       extractFile(myzfd, myzList, index, myzList[index].name);
     } else if (myzList[index].type == MDIR) {
        extractDir(myzfd, myzList, index, myzList[index].name);
     } 
   }
-
+  // if no list of files/dirs are given extract from root
   if (count == 1) {
     extractDir(myzfd, myzList, 0, myzList[0].name);
   }
@@ -109,18 +111,36 @@ int myzDelete(char* inputFiles[], int count) {
   Header head;
   bool readWrite = true;
   int myzfd = openMyz(inputFiles[0], &head, readWrite);
-  MyzNode* myzList = readMyzList(myzfd, head);
-
+  MyzNode* myzList = readMyzList(myzfd, head); 
+  MyzNode* tempList = readMyzList(myzfd, head);
+  // index is the the myzNode index of the file to be deleted
   int index;
   struct stat filestat;
   for (int i = 1; i < count; ++i) {
-    lstat(inputFiles[0], &filestat);
-    index = findEntry(myzList, head.myzNodeCount, filstat.st_ino);
+    lstat(inputFiles[i], &filestat);
+    index = findEntry(myzList, head.myzNodeCount, filestat.st_ino);
     if (index == 0) continue;
-    
-  
+    myzList = deleteEntry(myzList, index, &head);
   }
-  printf("ets\n");
+  //checks if any files have been deleted
+  index = 0;
+  for (int i = 1; i < head.myzNodeCount; ++i) {
+    if (myzList[i].type == MDELETED && myzList[i].fileSize != 0) {
+      index = i;
+      break;
+    }
+  }
+  //rewrites archive file according to deletions that have been made 
+  //fileSize is set to 0 after this step so we can detect
+  //previously deleted myzNodes and myzNodes deleted just now
+  if (index != 0) {
+    myzList = refreshMyz(myzfd, tempList, myzList, head.myzNodeCount, index);
+    writeMyzList(myzfd, head, myzList);
+    close(myzfd);
+  }
+  freeMyzList(tempList, head.myzNodeCount);
+  freeMyzList(myzList, head.myzNodeCount);
+  return 0;
 }
 
 
@@ -140,6 +160,8 @@ int myzMetadata(char* myzFilename) {
       printf("  Symbolic link\n");
     } else if (myzList[i].type == MDIR) {
       printf("  Directory\n");
+    } else {
+      continue;
     }
     printf("   Owner id: %d. Group id: %d.\n", myzList[i].uid, myzList[i].gid);
     printf("   Access rights: %o. File size: %ld bytes.\n", myzList[i].permissions, myzList[i].fileSize);

@@ -1,1 +1,0 @@
-this is a file for testing several system calls with c before use on my myz program§  some additions to check something 

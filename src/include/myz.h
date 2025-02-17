@@ -14,6 +14,9 @@
 #include <libgen.h>
 #include <sys/wait.h>
 
+//used in myzNodes 
+//for detecting file type
+//and deletion 
 typedef enum {
   MFILE,
   MDIR,
@@ -21,13 +24,13 @@ typedef enum {
   MROOT,
   MDELETED
 } FileType;
-  
+
 typedef struct {
   size_t myzNodeList;
   int myzNodeCount;
 } Header;
 
-
+//nested array structs
 typedef struct {
   int listIndex;
   char name[32];
@@ -38,7 +41,7 @@ typedef struct {
   ArrayNode* data;
 } NestedArray;
 
-
+//myzNode struct
 typedef struct {
   int uid;
   int gid;
@@ -54,12 +57,14 @@ typedef struct {
 } MyzNode;
 
 
-
+//implementations in myz-funcs.c
 int myzInit(const char* myzFilename);
 
 int myzInsert(char* inputFiles[], int count, bool compress);
 
 int myzExtract(char* inputFiles[], int count);
+
+int myzDelete(char* inputFiles[], int count);
 
 int myzMetadata(char* myzFilename);
 
@@ -69,7 +74,7 @@ int myzPrint(char* myzFilename);
 
 
 
-
+//implementations in myz-utils.c
 int openMyz(char* myzFilename, Header* head, bool write);
 
 MyzNode* readMyzList(int myzfd, Header head);
@@ -81,6 +86,10 @@ MyzNode* insertEntry(int myzfd, char *filepath, char *filename, int rootDir, Myz
 MyzNode* insertFile(int myzfd, char* filepath, int nodeNum, MyzNode* myzList, Header* head);
 
 MyzNode* insertLink(int myzfd, char* filepath, int nodeNum, MyzNode* myzList, Header* head);
+
+MyzNode* deleteEntry(MyzNode* myzList, int index, Header* head);
+
+MyzNode* refreshMyz(int myzfd, MyzNode* tempList, MyzNode* myzList, int myzNodeCount, int index);
 
 int extractFile(int myzfd, MyzNode* myzList, int index, char* path);
 

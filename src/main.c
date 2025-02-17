@@ -1,5 +1,8 @@
 #include "include/myz.h"
 
+/* handles the command prompt for myz
+* calls proper myz functions based on flags.*/
+
 int main(int argc, char *argv[]) {
   if (argc < 3) {
     printf("Usage: %s {-c|-a|-x|-m|-d|-p|-j} <archive-file> <list-of-files/dirs>\n", argv[0]);
